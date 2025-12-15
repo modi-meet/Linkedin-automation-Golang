@@ -1,0 +1,32 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Environment variables
+.env
+.env.*
+
+# Dependency directories
+vendor/
+
+# Project-specific build output directory
+bin/
+
+# Misc
+*.log
+*.tmp
+*.local
+
+# IDE-specific files
+.idea/
+.vscode/
+.history/
+
+# Operating system specific files
+.DS_Store # macOS
+Thumbs.db # Windows
