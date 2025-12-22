@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/meetm/linkedin-automation-go/auth"
+	"github.com/meetm/linkedin-automation-go/search"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
@@ -52,6 +53,11 @@ func main() {
 		auth.SaveCookies(browser, cookieFile)
 	}
 
-	fmt.Println("Ready for search phase...")
-	time.Sleep(30 * time.Second)
+	keyword := "Golang Developer"
+
+	// search run for profiles
+	profiles := search.Run(page, keyword)
+
+	fmt.Println("Extracted", len(profiles), "URLs.")
+	time.Sleep(1 * time.Minute)
 }
