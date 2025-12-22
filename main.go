@@ -3,10 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
 
+	"github.com/meetm/linkedin-automation-go/actions"
 	"github.com/meetm/linkedin-automation-go/auth"
 	"github.com/meetm/linkedin-automation-go/search"
+	"github.com/meetm/linkedin-automation-go/utils"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
@@ -56,8 +57,17 @@ func main() {
 	keyword := "Golang Developer"
 
 	// search run for profiles
-	profiles := search.Run(page, keyword, 50)
+	profiles := search.Run(page, keyword, 3) // only 3 for testing
 
-	fmt.Println("Collected total:", len(profiles))
-	time.Sleep(1 * time.Minute)
+	// connection requests
+	for _, profile := range profiles {
+		msg := "Hi, I am a Go developer expanding my network. Would love to connect!"
+
+		actions.SendConnectionRequest(page, profile, msg)
+
+		fmt.Println("Cooling down b/w requests...")
+		utils.RandomSleep(5000, 10000)
+	}
+
+	fmt.Println("Workflow Complete!!!")
 }
