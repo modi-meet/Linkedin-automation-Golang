@@ -56,8 +56,8 @@ func main() {
 	keyword := "Golang Developer"
 
 	// search run for profiles
-	profiles := search.Run(page, keyword)
+	profiles := search.Run(page, keyword, 50)
 
-	fmt.Println("Extracted", len(profiles), "URLs.")
+	fmt.Println("Collected total:", len(profiles))
 	time.Sleep(1 * time.Minute)
 }
