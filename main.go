@@ -14,6 +14,7 @@ import (
 )
 
 func main() {
+	// load env credentials
 	err := godotenv.Load()
 	if err != nil {
 		fmt.Println("Error loading .env file")
@@ -31,9 +32,26 @@ func main() {
 
 	page := stealth.MustPage(browser)
 
-	// Login Logic
-	auth.Login(page)
+	cookieFile := "linkedin_cookies.json"
 
-	fmt.Println("👀Check the browser: Are you on the Feed?")
-	time.Sleep(1 * time.Minute)
+	// load cookies
+	err = auth.LoadCookies(browser, cookieFile)
+
+	if err == nil {
+		fmt.Println("Navigating to LinkedIn Feed...")
+		page.MustNavigate("https://www.linkedin.com/feed/")
+
+		if page.MustInfo().URL == "https://www.linkedin.com/login" {
+			fmt.Println("Cookies expired. Logging in again.")
+			auth.Login(page)
+			auth.SaveCookies(browser, cookieFile)
+		}
+	} else {
+		// login logic
+		auth.Login(page)
+		auth.SaveCookies(browser, cookieFile)
+	}
+
+	fmt.Println("Ready for search phase...")
+	time.Sleep(30 * time.Second)
 }
