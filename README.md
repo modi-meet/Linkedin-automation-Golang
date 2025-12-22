@@ -10,6 +10,8 @@ Automates a basic LinkedIn workflow using Go and the Rod browser automation libr
 
 > **Important**: Automated interaction with LinkedIn may violate LinkedIn’s Terms of Service and can lead to account restrictions. Use responsibly, on your own account, and at your own risk.
 
+Explanation video - https://drive.google.com/file/d/1xocEAjwKOh64OasL7DALhuCSl_eFtA7u/view?usp=sharing
+
 ---
 
 ## Prerequisites
@@ -184,4 +186,5 @@ And reduce the number of profiles per run.
 - Consider adding strong backoff, daily caps, and manual review steps if you extend this project.
 
 ---
+
 
