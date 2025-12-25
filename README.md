@@ -40,6 +40,9 @@ Rod will download/launch a browser (Chromium) via the launcher. If your environm
 └── go.mod
 ```
 
+<img width="4225" height="2230" alt="Go-linkedIn_Autmation-workflow" src="https://github.com/user-attachments/assets/5e7e1cf4-5983-4183-8cf8-b85e050cb54c" />
+
+
 ---
 
 ## Setup
@@ -186,5 +189,6 @@ And reduce the number of profiles per run.
 - Consider adding strong backoff, daily caps, and manual review steps if you extend this project.
 
 ---
+
 
 
