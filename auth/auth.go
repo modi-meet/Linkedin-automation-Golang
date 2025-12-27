@@ -14,8 +14,30 @@ func Login(page *rod.Page) {
 	fmt.Println("Check: Are we logged in?")
 
 	page.MustNavigate("https://www.linkedin.com/login")
+	page.MustWaitStable()
 
-	emailInput := page.MustWaitStable().MustElement("#username")
+	// Check if we are on the "Welcome Back" page (no username field)
+	if has, _, _ := page.Has("#username"); !has {
+		fmt.Println("Username field not found. Checking for 'Sign in using another account'...")
+
+		// Try to find the button/link
+		el, err := page.ElementR("button, a", "Sign in using another account")
+		if err == nil {
+			fmt.Println("Found 'Sign in using another account' button. Clicking...")
+			el.MustClick()
+			page.MustWaitStable()
+		} else {
+			// Fallback: maybe it's just "Sign in"
+			el, err = page.ElementR("button, a", "Sign in")
+			if err == nil {
+				fmt.Println("Found 'Sign in' button. Clicking...")
+				el.MustClick()
+				page.MustWaitStable()
+			}
+		}
+	}
+
+	emailInput := page.MustElement("#username")
 
 	email := os.Getenv("LINKEDIN_EMAIL")
 	pass := os.Getenv("LINKEDIN_PASS")

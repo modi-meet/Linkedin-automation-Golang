@@ -10,7 +10,13 @@ import (
 
 func SendConnectionRequest(page *rod.Page, profileURL, message string) {
 	fmt.Println("Visiting:", profileURL)
-	page.MustNavigate(profileURL)
+
+	// Navigate with error handling
+	if err := page.Navigate(profileURL); err != nil {
+		fmt.Printf("Error navigating to profile: %v\n", err)
+		return
+	}
+
 	page.MustWaitStable()
 	utils.RandomSleep(2000, 4000)
 

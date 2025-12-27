@@ -25,13 +25,16 @@ func main() {
 
 	fmt.Println("Booting up LinkedIn Bot...")
 
-	u := launcher.New().
-		Headless(false).
-		MustLaunch()
+	// Configure the browser launcher with stealth settings
+	l := launcher.New().
+		Headless(false)
+
+	u := l.MustLaunch()
 
 	browser := rod.New().ControlURL(u).MustConnect()
 	defer browser.MustClose()
 
+	// Create a stealth page
 	page := stealth.MustPage(browser)
 
 	cookieFile := "linkedin_cookies.json"
@@ -40,24 +43,27 @@ func main() {
 	err = auth.LoadCookies(browser, cookieFile)
 
 	if err == nil {
-		fmt.Println("Navigating to LinkedIn Feed...")
-		page.MustNavigate("https://www.linkedin.com/feed/")
-
-		if page.MustInfo().URL == "https://www.linkedin.com/login" {
-			fmt.Println("Cookies expired. Logging in again.")
-			auth.Login(page)
-			auth.SaveCookies(browser, cookieFile)
-		}
+		fmt.Println("Session restored from cookies.")
 	} else {
 		// login logic
+		fmt.Println("No valid session. Performing login...")
 		auth.Login(page)
-		auth.SaveCookies(browser, cookieFile)
+		if err := auth.SaveCookies(browser, cookieFile); err != nil {
+			fmt.Println("Warning: Failed to save cookies:", err)
+		}
 	}
 
-	keyword := "Golang Developer"
+	keyword := "Software Developer"
 
 	// search run for profiles
 	profiles := search.Run(page, keyword, 3) // only 3 for testing
+
+	if len(profiles) == 0 {
+		fmt.Println("No profiles found. Exiting.")
+		return
+	}
+
+	fmt.Printf("Found %d profiles. Starting connection requests...\n", len(profiles))
 
 	// connection requests
 	for _, profile := range profiles {
