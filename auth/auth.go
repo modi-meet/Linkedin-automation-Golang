@@ -2,35 +2,36 @@ package auth
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
+
+	"github.com/meetm/linkedin-automation-go/pkg/logger"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
 	"github.com/go-rod/rod/lib/proto"
 )
 
-func Login(page *rod.Page) {
-	fmt.Println("Check: Are we logged in?")
+func Login(page *rod.Page, log *logger.Logger) {
+	log.Printf("Check: Are we logged in?")
 
 	page.MustNavigate("https://www.linkedin.com/login")
 	page.MustWaitStable()
 
 	// Check if we are on the "Welcome Back" page (no username field)
 	if has, _, _ := page.Has("#username"); !has {
-		fmt.Println("Username field not found. Checking for 'Sign in using another account'...")
+		log.Printf("Username field not found. Checking for 'Sign in using another account'...")
 
 		// Try to find the button/link
 		el, err := page.ElementR("button, a", "Sign in using another account")
 		if err == nil {
-			fmt.Println("Found 'Sign in using another account' button. Clicking...")
+			log.Printf("Found 'Sign in using another account' button. Clicking...")
 			el.MustClick()
 			page.MustWaitStable()
 		} else {
 			// Fallback: maybe it's just "Sign in"
 			el, err = page.ElementR("button, a", "Sign in")
 			if err == nil {
-				fmt.Println("Found 'Sign in' button. Clicking...")
+				log.Printf("Found 'Sign in' button. Clicking...")
 				el.MustClick()
 				page.MustWaitStable()
 			}
@@ -42,23 +43,23 @@ func Login(page *rod.Page) {
 	email := os.Getenv("LINKEDIN_EMAIL")
 	pass := os.Getenv("LINKEDIN_PASS")
 
-	fmt.Println("Typing credentials...")
+	log.Printf("Typing credentials...")
 
 	emailInput.MustInput(email)
 	page.MustElement("#password").MustInput(pass)
 
-	fmt.Println("Hitting Enter...")
+	log.Printf("Hitting Enter...")
 	page.KeyActions().Press(input.Enter).MustDo()
 
-	fmt.Println("Waiting for home feed...")
+	log.Printf("Waiting for home feed...")
 	page.MustWaitStable()
 
-	fmt.Println("Login successful!")
+	log.Printf("Login successful!")
 }
 
 // export browser cookies to a file
-func SaveCookies(browser *rod.Browser, filename string) error {
-	fmt.Println("Saving cookies to", filename)
+func SaveCookies(browser *rod.Browser, filename string, log *logger.Logger) error {
+	log.Printf("Saving cookies to %s", filename)
 
 	cookies, err := browser.GetCookies()
 	if err != nil {
@@ -104,12 +105,12 @@ func SaveCookies(browser *rod.Browser, filename string) error {
 }
 
 // import cookies from a file if it exists
-func LoadCookies(browser *rod.Browser, filename string) error {
-	fmt.Println("Checking for cookie file:", filename)
+func LoadCookies(browser *rod.Browser, filename string, log *logger.Logger) error {
+	log.Printf("Checking for cookie file: %s", filename)
 
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		fmt.Println("No cookie file found. Fresh login required.")
+		log.Printf("No cookie file found. Fresh login required.")
 		return err
 	}
 
@@ -122,6 +123,6 @@ func LoadCookies(browser *rod.Browser, filename string) error {
 		return err
 	}
 
-	fmt.Println("Cookies loaded! Session restored.")
+	log.Printf("Cookies loaded! Session restored.")
 	return nil
 }

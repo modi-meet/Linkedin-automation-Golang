@@ -6,12 +6,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/meetm/linkedin-automation-go/pkg/logger"
+
 	"github.com/go-rod/rod"
 )
 
 // Run navigates, scrapes, and handles pagination
-func Run(page *rod.Page, keyword string, limit int) []string {
-	fmt.Println("Starting search for:", keyword)
+func Run(page *rod.Page, keyword string, limit int, log *logger.Logger) []string {
+	log.Printf("Starting search for: %s", keyword)
 	searchURL := fmt.Sprintf(
 		"https://www.linkedin.com/search/results/people/?keywords=%s",
 		url.QueryEscape(keyword),
@@ -19,17 +21,17 @@ func Run(page *rod.Page, keyword string, limit int) []string {
 
 	// Use Navigate instead of MustNavigate to handle errors gracefully
 	if err := page.Navigate(searchURL); err != nil {
-		fmt.Printf("Error navigating to search URL: %v\n", err)
+		log.Printf("Error navigating to search URL: %v", err)
 		return nil
 	}
 
 	// Wait for page to load, handle potential timeout/error
 	if err := page.WaitStable(time.Second * 5); err != nil {
-		fmt.Printf("Warning: Page did not stabilize: %v\n", err)
+		log.Printf("Warning: Page did not stabilize: %v", err)
 	}
 
-	fmt.Println("Current URL:", page.MustInfo().URL)
-	fmt.Println("Page Title:", page.MustInfo().Title)
+	log.Printf("Current URL: %s", page.MustInfo().URL)
+	log.Printf("Page Title: %s", page.MustInfo().Title)
 
 	var allProfiles []string
 	visited := make(map[string]bool)
@@ -43,7 +45,7 @@ func Run(page *rod.Page, keyword string, limit int) []string {
 
 		// If no profiles found on current page, try scrolling more or waiting
 		if len(newProfiles) == 0 {
-			fmt.Println("No profiles found on current view, scrolling further...")
+			log.Printf("No profiles found on current view, scrolling further...")
 			page.Mouse.Scroll(0, 2000, 5)
 			time.Sleep(2 * time.Second)
 			newProfiles = scrapeCurrentPage(page)
@@ -53,7 +55,7 @@ func Run(page *rod.Page, keyword string, limit int) []string {
 			if !visited[url] {
 				visited[url] = true
 				allProfiles = append(allProfiles, url)
-				fmt.Println("   -> Collected:", url)
+				log.Printf("   -> Collected: %s", url)
 			}
 			if len(allProfiles) >= limit {
 				break
@@ -64,7 +66,7 @@ func Run(page *rod.Page, keyword string, limit int) []string {
 			break
 		}
 
-		fmt.Println("Looking for Next button...")
+		log.Printf("Looking for Next button...")
 
 		page.Mouse.Scroll(0, 2000, 5)
 		time.Sleep(1 * time.Second)
@@ -72,17 +74,17 @@ func Run(page *rod.Page, keyword string, limit int) []string {
 		nextBtn, err := page.Element("button[aria-label='Next']")
 
 		if err != nil {
-			fmt.Println("No 'Next' button found (or end of results). Stopping.")
+			log.Printf("No 'Next' button found (or end of results). Stopping.")
 			break
 		}
 
 		if disabled, _ := nextBtn.Attribute("disabled"); disabled != nil {
-			fmt.Println("'Next' button is disabled. End of results.")
+			log.Printf("'Next' button is disabled. End of results.")
 			break
 		}
 
 		nextBtn.MustClick()
-		fmt.Println("⏳ Loading next page...")
+		log.Printf("⏳ Loading next page...")
 		page.MustWaitStable()
 
 		// sleep for human-like behavior
