@@ -2,8 +2,6 @@ package workflow
 
 import (
 	"os"
-
-	"strings"
 	"time"
 
 	"github.com/meetm/linkedin-automation-go/actions"
@@ -27,11 +25,55 @@ type Config struct {
 	Headless       bool
 }
 
-func Run(cfg Config, log *logger.Logger) {
-	log.Printf("Booting up LinkedIn Bot...")
+type WorkflowStats struct {
+	ProfilesFound   int
+	RequestsSent    int
+	RequestsSkipped int
+	RequestsFailed  int
+}
 
+func Run(cfg Config, log *logger.Logger) {
+	log.Printf("Starting LinkedIn automation...")
+
+	browser, page, err := initBrowser(cfg.Headless, log)
+	if err != nil {
+		log.Printf("Browser initialization failed: %v", err)
+		return
+	}
+	defer browser.MustClose()
+
+	if cfg.Email != "" {
+		os.Setenv("LINKEDIN_EMAIL", cfg.Email)
+	}
+	if cfg.Password != "" {
+		os.Setenv("LINKEDIN_PASSWORD", cfg.Password)
+	}
+
+	log.Printf("Performing login...")
+	if err := auth.Login(page, log); err != nil {
+		log.Printf("Login failed: %v", err)
+		return
+	}
+
+	utils.LongRandomSleep(2, 4)
+
+	profiles := search.Run(page, cfg.Keyword, cfg.Limit, log)
+	if len(profiles) == 0 {
+		log.Printf("No profiles found. Exiting.")
+		return
+	}
+
+	log.Printf("Found %d profiles. Starting connection requests...", len(profiles))
+
+	stats := processProfiles(page, profiles, cfg.ConnectMessage, log)
+
+	log.Printf("Workflow complete! Sent: %d, Skipped: %d, Failed: %d",
+		stats.RequestsSent, stats.RequestsSkipped, stats.RequestsFailed)
+}
+
+func initBrowser(headless bool, log *logger.Logger) (*rod.Browser, *rod.Page, error) {
 	l := launcher.New().
-		Headless(cfg.Headless).
+		Headless(headless).
 		Set("disable-blink-features", "AutomationControlled").
 		Set("disable-infobars", "true").
 		Set("start-maximized").
@@ -41,9 +83,6 @@ func Run(cfg Config, log *logger.Logger) {
 	u := l.MustLaunch()
 
 	browser := rod.New().ControlURL(u).MustConnect()
-	defer browser.MustClose()
-
-	log.Printf("Browser connected. Initializing page...")
 	time.Sleep(time.Second * 2)
 
 	page := stealth.MustPage(browser)
@@ -51,75 +90,35 @@ func Run(cfg Config, log *logger.Logger) {
 		UserAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 	})
 
-	log.Printf("Page initialized.")
+	log.Printf("Browser ready")
+	return browser, page, nil
+}
 
-	cookieFile := "linkedin_cookies.json"
+func processProfiles(page *rod.Page, profiles []string, message string, log *logger.Logger) WorkflowStats {
+	stats := WorkflowStats{ProfilesFound: len(profiles)}
 
-	if cfg.Email != "" {
-		os.Setenv("LINKEDIN_EMAIL", cfg.Email)
+	if message == "" {
+		message = "Hi, I am a Go developer expanding my network. Would love to connect!"
 	}
-	if cfg.Password != "" {
-		os.Setenv("LINKEDIN_PASSWORD", cfg.Password)
-	}
 
-	// load cookies
-	err := auth.LoadCookies(browser, cookieFile, log)
-	sessionValid := false
+	for i, profile := range profiles {
+		log.Printf("Processing %d/%d...", i+1, len(profiles))
 
-	if err == nil {
-		log.Printf("Cookies loaded! Session restored. Verifying...")
-		// Navigate to feed to check if cookies are actually good
-		// We use a retry loop here because sometimes the first request fails
-		for i := 0; i < 3; i++ {
-			if err := page.Navigate("https://www.linkedin.com/feed/"); err == nil {
-				break
-			}
-			log.Printf("Navigation failed, retrying (%d/3)...", i+1)
-			time.Sleep(time.Second * 2)
-		}
+		result := actions.SendConnectionRequest(page, profile, message, log)
 
-		page.WaitStable(time.Second * 5)
-
-		// Check if we are actually on the feed or redirected to login
-		url := page.MustInfo().URL
-		if strings.Contains(url, "linkedin.com/feed") {
-			sessionValid = true
-			log.Printf("Session verified.")
+		if result.Success {
+			stats.RequestsSent++
+		} else if result.Skipped {
+			stats.RequestsSkipped++
 		} else {
-			log.Printf("Session invalid (redirected to %s).", url)
+			stats.RequestsFailed++
+		}
+
+		if i < len(profiles)-1 {
+			log.Printf("Cooling down...")
+			utils.LongRandomSleep(5, 12)
 		}
 	}
 
-	if !sessionValid {
-		log.Printf("No valid session. Performing login...")
-		auth.Login(page, log)
-		if err := auth.SaveCookies(browser, cookieFile, log); err != nil {
-			log.Printf("Warning: Failed to save cookies: %v", err)
-		}
-	}
-
-	// search run for profiles
-	profiles := search.Run(page, cfg.Keyword, cfg.Limit, log)
-
-	if len(profiles) == 0 {
-		log.Printf("No profiles found. Exiting.")
-		return
-	}
-
-	log.Printf("Found %d profiles. Starting connection requests...", len(profiles))
-
-	// connection requests
-	for _, profile := range profiles {
-		msg := cfg.ConnectMessage
-		if msg == "" {
-			msg = "Hi, I am a Go developer expanding my network. Would love to connect!"
-		}
-
-		actions.SendConnectionRequest(page, profile, msg, log)
-
-		log.Printf("Cooling down b/w requests...")
-		utils.RandomSleep(5000, 10000)
-	}
-
-	log.Printf("Workflow Complete!!!")
+	return stats
 }
