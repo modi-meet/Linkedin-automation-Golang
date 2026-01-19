@@ -83,27 +83,35 @@ func Login(page *rod.Page, log *logger.Logger) error {
 }
 
 func validateLogin(page *rod.Page, log *logger.Logger) error {
-	currentURL := page.MustInfo().URL
+	for attempt := 0; attempt < 40; attempt++ {
+		currentURL := page.MustInfo().URL
 
-	if strings.Contains(currentURL, "/checkpoint") || strings.Contains(currentURL, "/challenge") {
-		log.Printf("Security checkpoint detected")
-		return ErrCaptchaDetected
-	}
-
-	if strings.Contains(currentURL, "/login") {
-		if _, err := page.Timeout(2 * time.Second).Element(".form__label--error"); err == nil {
-			return ErrCredentialError
+		if strings.Contains(currentURL, "/checkpoint") || strings.Contains(currentURL, "/challenge") {
+			if attempt == 0 {
+				log.Printf("Security checkpoint detected - please solve manually...")
+			}
+			time.Sleep(3 * time.Second)
+			continue
 		}
-		return ErrLoginFailed
-	}
 
-	if strings.Contains(currentURL, "/feed") || strings.Contains(currentURL, "/mynetwork") {
-		log.Printf("Login successful")
+		if strings.Contains(currentURL, "/login") {
+			if _, err := page.Timeout(2 * time.Second).Element(".form__label--error"); err == nil {
+				return ErrCredentialError
+			}
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		if strings.Contains(currentURL, "/feed") || strings.Contains(currentURL, "/mynetwork") {
+			log.Printf("Login successful")
+			return nil
+		}
+
+		log.Printf("Login completed, current URL: %s", currentURL)
 		return nil
 	}
 
-	log.Printf("Login completed, current URL: %s", currentURL)
-	return nil
+	return ErrCaptchaDetected
 }
 
 func SaveCookies(browser *rod.Browser, filename string, log *logger.Logger) error {
