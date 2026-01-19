@@ -63,7 +63,8 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 
 	ch := s.Log.Subscribe()
-	
+	defer s.Log.Unsubscribe(ch)
+
 	// Listen for client disconnect
 	notify := r.Context().Done()
 

@@ -2,64 +2,112 @@ package auth
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/meetm/linkedin-automation-go/pkg/logger"
+	"github.com/meetm/linkedin-automation-go/utils"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
 	"github.com/go-rod/rod/lib/proto"
 )
 
-func Login(page *rod.Page, log *logger.Logger) {
-	log.Printf("Check: Are we logged in?")
+var (
+	ErrLoginFailed     = errors.New("login failed: could not verify successful login")
+	ErrCredentialError = errors.New("login failed: invalid credentials or account issue")
+	ErrCaptchaDetected = errors.New("login blocked: CAPTCHA or verification required")
+)
 
-	page.MustNavigate("https://www.linkedin.com/login")
+func Login(page *rod.Page, log *logger.Logger) error {
+	log.Printf("Navigating to login page...")
+
+	if err := page.Navigate("https://www.linkedin.com/login"); err != nil {
+		return err
+	}
+
+	utils.LongRandomSleep(2, 4)
 	page.MustWaitStable()
 
-	// Check if we are on the "Welcome Back" page (no username field)
 	if has, _, _ := page.Has("#username"); !has {
-		log.Printf("Username field not found. Checking for 'Sign in using another account'...")
-
-		// Try to find the button/link
-		el, err := page.ElementR("button, a", "Sign in using another account")
-		if err == nil {
-			log.Printf("Found 'Sign in using another account' button. Clicking...")
-			el.MustClick()
-			page.MustWaitStable()
-		} else {
-			// Fallback: maybe it's just "Sign in"
-			el, err = page.ElementR("button, a", "Sign in")
-			if err == nil {
-				log.Printf("Found 'Sign in' button. Clicking...")
-				el.MustClick()
-				page.MustWaitStable()
-			}
+		log.Printf("Looking for alternate sign-in option...")
+		if el, err := page.Timeout(5*time.Second).ElementR("button, a", "Sign in using another account"); err == nil {
+			utils.HumanClick(page, el)
+			utils.LongRandomSleep(1, 2)
+		} else if el, err := page.Timeout(3*time.Second).ElementR("button, a", "Sign in"); err == nil {
+			utils.HumanClick(page, el)
+			utils.LongRandomSleep(1, 2)
 		}
 	}
 
-	emailInput := page.MustElement("#username")
+	emailInput, err := utils.WaitForElement(page, "#username", 10*time.Second)
+	if err != nil {
+		return errors.New("could not find email input field")
+	}
 
 	email := os.Getenv("LINKEDIN_EMAIL")
-	pass := os.Getenv("LINKEDIN_PASS")
+	pass := os.Getenv("LINKEDIN_PASSWORD")
 
-	log.Printf("Typing credentials...")
+	if email == "" || pass == "" {
+		return errors.New("LINKEDIN_EMAIL or LINKEDIN_PASSWORD not set in environment")
+	}
 
-	emailInput.MustInput(email)
-	page.MustElement("#password").MustInput(pass)
+	log.Printf("Entering credentials...")
 
-	log.Printf("Hitting Enter...")
-	page.KeyActions().Press(input.Enter).MustDo()
+	if err := utils.HumanType(page, emailInput, email); err != nil {
+		return err
+	}
 
-	log.Printf("Waiting for home feed...")
+	utils.RandomSleep(300, 600)
+
+	passwordInput, err := utils.WaitForElement(page, "#password", 5*time.Second)
+	if err != nil {
+		return errors.New("could not find password input field")
+	}
+
+	if err := utils.HumanType(page, passwordInput, pass); err != nil {
+		return err
+	}
+
+	utils.RandomSleep(500, 1000)
+
+	log.Printf("Submitting login...")
+	page.Keyboard.Press(input.Enter)
+
+	utils.LongRandomSleep(3, 5)
 	page.MustWaitStable()
 
-	log.Printf("Login successful!")
+	return validateLogin(page, log)
 }
 
-// export browser cookies to a file
+func validateLogin(page *rod.Page, log *logger.Logger) error {
+	currentURL := page.MustInfo().URL
+
+	if strings.Contains(currentURL, "/checkpoint") || strings.Contains(currentURL, "/challenge") {
+		log.Printf("Security checkpoint detected")
+		return ErrCaptchaDetected
+	}
+
+	if strings.Contains(currentURL, "/login") {
+		if _, err := page.Timeout(2 * time.Second).Element(".form__label--error"); err == nil {
+			return ErrCredentialError
+		}
+		return ErrLoginFailed
+	}
+
+	if strings.Contains(currentURL, "/feed") || strings.Contains(currentURL, "/mynetwork") {
+		log.Printf("Login successful")
+		return nil
+	}
+
+	log.Printf("Login completed, current URL: %s", currentURL)
+	return nil
+}
+
 func SaveCookies(browser *rod.Browser, filename string, log *logger.Logger) error {
-	log.Printf("Saving cookies to %s", filename)
+	log.Printf("Saving cookies...")
 
 	cookies, err := browser.GetCookies()
 	if err != nil {
@@ -68,31 +116,22 @@ func SaveCookies(browser *rod.Browser, filename string, log *logger.Logger) erro
 
 	var params []*proto.NetworkCookieParam
 	for _, c := range cookies {
-		domain := c.Domain
-		path := c.Path
-
-		// optional fields
 		var expires proto.TimeSinceEpoch
 		if c.Expires != 0 {
 			expires = proto.TimeSinceEpoch(c.Expires)
 		}
-		secure := c.Secure
-		httpOnly := c.HTTPOnly
-		sameParty := c.SameParty
-		sameSite := c.SameSite
-		priority := c.Priority
 
 		param := &proto.NetworkCookieParam{
 			Name:      c.Name,
 			Value:     c.Value,
-			Domain:    domain,
-			Path:      path,
+			Domain:    c.Domain,
+			Path:      c.Path,
 			Expires:   expires,
-			Secure:    secure,
-			HTTPOnly:  httpOnly,
-			SameSite:  sameSite,
-			Priority:  priority,
-			SameParty: sameParty,
+			Secure:    c.Secure,
+			HTTPOnly:  c.HTTPOnly,
+			SameSite:  c.SameSite,
+			Priority:  c.Priority,
+			SameParty: c.SameParty,
 		}
 		params = append(params, param)
 	}
@@ -104,13 +143,12 @@ func SaveCookies(browser *rod.Browser, filename string, log *logger.Logger) erro
 	return os.WriteFile(filename, data, 0644)
 }
 
-// import cookies from a file if it exists
 func LoadCookies(browser *rod.Browser, filename string, log *logger.Logger) error {
-	log.Printf("Checking for cookie file: %s", filename)
+	log.Printf("Loading cookies from %s...", filename)
 
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		log.Printf("No cookie file found. Fresh login required.")
+		log.Printf("No cookie file found")
 		return err
 	}
 
@@ -123,6 +161,6 @@ func LoadCookies(browser *rod.Browser, filename string, log *logger.Logger) erro
 		return err
 	}
 
-	log.Printf("Cookies loaded! Session restored.")
+	log.Printf("Cookies loaded successfully")
 	return nil
 }
