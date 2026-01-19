@@ -3,6 +3,7 @@ package auth
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -24,8 +25,17 @@ var (
 func Login(page *rod.Page, log *logger.Logger) error {
 	log.Printf("Navigating to login page...")
 
-	if err := page.Navigate("https://www.linkedin.com/login"); err != nil {
-		return err
+	var navErr error
+	for i := 0; i < 3; i++ {
+		navErr = page.Navigate("https://www.linkedin.com/login")
+		if navErr == nil {
+			break
+		}
+		log.Printf("Navigation attempt %d failed, retrying...", i+1)
+		time.Sleep(2 * time.Second)
+	}
+	if navErr != nil {
+		return fmt.Errorf("navigation failed: %w", navErr)
 	}
 
 	utils.LongRandomSleep(2, 4)
