@@ -72,26 +72,89 @@ func Run(cfg Config, log *logger.Logger) {
 }
 
 func initBrowser(headless bool, log *logger.Logger) (*rod.Browser, *rod.Page, error) {
+	userDataDir := getUserDataDir()
+	log.Printf("Using browser profile: %s", userDataDir)
+
 	l := launcher.New().
 		Headless(headless).
+		UserDataDir(userDataDir).
 		Set("disable-blink-features", "AutomationControlled").
-		Set("disable-infobars", "true").
-		Set("start-maximized").
-		Set("disable-web-security")
+		Set("disable-dev-shm-usage").
+		Set("no-first-run").
+		Set("no-default-browser-check").
+		Set("disable-infobars").
+		Set("disable-extensions").
+		Set("disable-popup-blocking").
+		Set("ignore-certificate-errors").
+		Set("disable-background-networking").
+		Set("disable-sync").
+		Set("disable-translate").
+		Set("metrics-recording-only").
+		Set("safebrowsing-disable-auto-update").
+		Set("password-store", "basic")
 
 	log.Printf("Launching browser...")
-	u := l.MustLaunch()
+	u, err := l.Launch()
+	if err != nil {
+		return nil, nil, err
+	}
 
 	browser := rod.New().ControlURL(u).MustConnect()
 	time.Sleep(time.Second * 2)
 
 	page := stealth.MustPage(browser)
+
+	page.MustSetViewport(1920, 1080, 1, false)
+
 	page.SetUserAgent(&proto.NetworkSetUserAgentOverride{
-		UserAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+		UserAgent:      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+		AcceptLanguage: "en-US,en;q=0.9",
+		Platform:       "Win32",
 	})
+
+	applyStealthScripts(page)
 
 	log.Printf("Browser ready")
 	return browser, page, nil
+}
+
+func applyStealthScripts(page *rod.Page) {
+	page.MustEval(`() => {
+		Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+		
+		Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
+		
+		Object.defineProperty(navigator, 'plugins', {
+			get: () => [1, 2, 3, 4, 5]
+		});
+		
+		const originalQuery = window.navigator.permissions.query;
+		window.navigator.permissions.query = (parameters) => (
+			parameters.name === 'notifications' ?
+				Promise.resolve({ state: Notification.permission }) :
+				originalQuery(parameters)
+		);
+		
+		Object.defineProperty(navigator, 'platform', {get: () => 'Win32'});
+		
+		Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8});
+		
+		Object.defineProperty(navigator, 'deviceMemory', {get: () => 8});
+		
+		const getParameter = WebGLRenderingContext.prototype.getParameter;
+		WebGLRenderingContext.prototype.getParameter = function(parameter) {
+			if (parameter === 37445) return 'Intel Inc.';
+			if (parameter === 37446) return 'Intel Iris OpenGL Engine';
+			return getParameter.apply(this, arguments);
+		};
+		
+		window.chrome = {runtime: {}};
+	}`)
+}
+
+func getUserDataDir() string {
+	home, _ := os.UserHomeDir()
+	return home + "/.linkedin-automation-profile"
 }
 
 func processProfiles(page *rod.Page, profiles []string, message string, log *logger.Logger) WorkflowStats {
