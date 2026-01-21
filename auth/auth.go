@@ -23,23 +23,30 @@ var (
 )
 
 func Login(page *rod.Page, log *logger.Logger) error {
-	log.Printf("Navigating to login page...")
+	currentURL := page.MustInfo().URL
 
-	var navErr error
-	for i := 0; i < 3; i++ {
-		navErr = page.Navigate("https://www.linkedin.com/login")
-		if navErr == nil {
-			break
+	if !strings.Contains(currentURL, "linkedin.com/login") && !strings.Contains(currentURL, "linkedin.com/checkpoint") {
+		log.Printf("Navigating to login page...")
+
+		var navErr error
+		for i := 0; i < 3; i++ {
+			navErr = page.Navigate("https://www.linkedin.com/login")
+			if navErr == nil {
+				break
+			}
+			log.Printf("Navigation attempt %d failed, retrying...", i+1)
+			time.Sleep(2 * time.Second)
 		}
-		log.Printf("Navigation attempt %d failed, retrying...", i+1)
-		time.Sleep(2 * time.Second)
-	}
-	if navErr != nil {
-		return fmt.Errorf("navigation failed: %w", navErr)
-	}
+		if navErr != nil {
+			return fmt.Errorf("navigation failed: %w", navErr)
+		}
 
-	utils.LongRandomSleep(2, 4)
-	page.MustWaitStable()
+		utils.LongRandomSleep(2, 4)
+		page.MustWaitStable()
+	} else {
+		log.Printf("Already on login page, proceeding...")
+		utils.RandomSleep(500, 1000)
+	}
 
 	if has, _, _ := page.Has("#username"); !has {
 		log.Printf("Looking for alternate sign-in option...")
@@ -65,6 +72,9 @@ func Login(page *rod.Page, log *logger.Logger) error {
 	}
 
 	log.Printf("Entering credentials...")
+
+	emailInput.MustSelectAllText()
+	utils.RandomSleep(100, 200)
 
 	if err := utils.HumanType(page, emailInput, email); err != nil {
 		return err

@@ -104,16 +104,15 @@ func SendConnectionRequest(page *rod.Page, profileURL, message string, log *logg
 }
 
 func isAlreadyConnected(page *rod.Page) bool {
-	el, err := page.Timeout(2*time.Second).ElementR("button", "Message")
-	if err != nil {
-		return false
-	}
+	messageBtn, _ := page.Timeout(2*time.Second).ElementR("button", "Message")
+	connectBtn, _ := page.Timeout(1*time.Second).ElementR("button", "Connect")
+	addBtn, _ := page.Timeout(1*time.Second).ElementR("button", "Add")
 
-	if el2, _ := page.Timeout(1*time.Second).ElementR("button", "Connect"); el2 != nil {
-		return false
-	}
+	hasMessage := messageBtn != nil && utils.IsElementVisible(messageBtn)
+	hasConnect := connectBtn != nil && utils.IsElementVisible(connectBtn)
+	hasAdd := addBtn != nil && utils.IsElementVisible(addBtn)
 
-	return utils.IsElementVisible(el)
+	return hasMessage && !hasConnect && !hasAdd
 }
 
 func isPending(page *rod.Page) bool {
@@ -125,12 +124,22 @@ func isPending(page *rod.Page) bool {
 }
 
 func findConnectButton(page *rod.Page) *rod.Element {
-	el, err := page.Timeout(3*time.Second).ElementR("button", "^Connect$")
+	el, err := page.Timeout(3*time.Second).ElementR("button", "Connect")
 	if err == nil && utils.IsElementVisible(el) {
 		return el
 	}
 
-	el, err = page.Timeout(2*time.Second).ElementR("button", "^Add$")
+	el, err = page.Timeout(2*time.Second).ElementR("button", "Add")
+	if err == nil && utils.IsElementVisible(el) {
+		return el
+	}
+
+	el, err = page.Timeout(2 * time.Second).Element("button[aria-label*='connect' i]")
+	if err == nil && utils.IsElementVisible(el) {
+		return el
+	}
+
+	el, err = page.Timeout(2 * time.Second).Element("button[aria-label*='Invite' i]")
 	if err == nil && utils.IsElementVisible(el) {
 		return el
 	}
@@ -161,38 +170,65 @@ func findConnectInMore(page *rod.Page, log *logger.Logger) *rod.Element {
 }
 
 func handleConnectionModal(page *rod.Page, message string, log *logger.Logger) bool {
+	log.Printf("Looking for 'Add a note' button...")
+
 	addNoteBtn, err := page.Timeout(3*time.Second).ElementR("button", "Add a note")
 	if err != nil {
-		return false
+		addNoteBtn, err = page.Timeout(2*time.Second).ElementR("button", "Add note")
+		if err != nil {
+			addNoteBtn, err = page.Timeout(2*time.Second).ElementR("button", "Personalize")
+			if err != nil {
+				log.Printf("Could not find 'Add a note' button")
+				return false
+			}
+		}
 	}
 
+	log.Printf("Found add note button, clicking...")
 	if err := utils.HumanClick(page, addNoteBtn); err != nil {
+		log.Printf("Failed to click add note button: %v", err)
 		return false
 	}
 
-	utils.RandomSleep(500, 1000)
+	utils.RandomSleep(800, 1500)
 
+	log.Printf("Looking for message textarea...")
 	textarea, err := utils.WaitForElement(page, "textarea[name='message']", 5*time.Second)
 	if err != nil {
-		textarea, err = utils.WaitForElement(page, "textarea", 3*time.Second)
+		textarea, err = utils.WaitForElement(page, "textarea#custom-message", 3*time.Second)
 		if err != nil {
-			return false
+			textarea, err = utils.WaitForElement(page, "textarea", 3*time.Second)
+			if err != nil {
+				log.Printf("Could not find message textarea")
+				return false
+			}
 		}
 	}
 
 	log.Printf("Typing message...")
 	if err := utils.HumanType(page, textarea, message); err != nil {
+		log.Printf("Failed to type message: %v", err)
 		return false
 	}
 
 	utils.RandomSleep(500, 1000)
 
-	sendBtn, err := page.Timeout(3*time.Second).ElementR("button", "Send")
+	log.Printf("Looking for Send button...")
+	sendBtn, err := page.Timeout(3*time.Second).ElementR("button", "^Send$")
 	if err != nil {
-		return false
+		sendBtn, err = page.Timeout(2*time.Second).ElementR("button", "Send invitation")
+		if err != nil {
+			sendBtn, err = page.Timeout(2*time.Second).ElementR("button", "Send")
+			if err != nil {
+				log.Printf("Could not find Send button")
+				return false
+			}
+		}
 	}
 
+	log.Printf("Clicking Send button...")
 	if err := utils.HumanClick(page, sendBtn); err != nil {
+		log.Printf("Failed to click Send button: %v", err)
 		return false
 	}
 

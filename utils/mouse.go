@@ -238,31 +238,17 @@ func HumanType(page *rod.Page, el *rod.Element, text string) error {
 
 	RandomSleep(200, 500)
 
-	chars := []rune(text)
-	i := 0
-
-	for i < len(chars) {
-		if cryptoRandInt(0, 100) < 3 && i > 0 && i < len(chars)-1 {
-			wrongChar := getAdjacentKey(chars[i])
-			el.MustInput(string(wrongChar))
-			RandomSleep(80, 200)
-
-			ThinkingPause()
-
-			page.Keyboard.MustType('\b')
-			RandomSleep(50, 150)
+	for _, char := range text {
+		if err := el.Input(string(char)); err != nil {
+			return err
 		}
 
-		el.MustInput(string(chars[i]))
-
-		delay := getTypingDelay(chars[i])
+		delay := getTypingDelay(char)
 		RandomSleep(delay, delay+80)
 
 		if cryptoRandInt(0, 100) < 5 {
 			RandomSleep(300, 800)
 		}
-
-		i++
 	}
 
 	RandomSleep(200, 500)
