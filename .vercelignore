@@ -1,0 +1,11 @@
+# Ignore Go backend - this is a static frontend deployment
+*.go
+go.mod
+go.sum
+api/
+actions/
+auth/
+pkg/
+search/
+utils/
+*.exe
