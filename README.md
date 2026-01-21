@@ -29,14 +29,19 @@ Rod will download/launch a browser (Chromium) via the launcher. If your environm
 ```
 .
 ├── actions/
-│   └── connecct.go        # Sends connection requests ("Connect" / "More" flow)
+│   └── connect.go         # Sends connection requests
+├── api/
+│   └── server.go          # HTTP API server
 ├── auth/
-│   └── auth.go            # Login + cookie save/load
+│   └── auth.go            # Login + session handling
+├── pkg/
+│   ├── logger/            # Logging with SSE broadcast
+│   └── workflow/          # Main automation workflow
 ├── search/
 │   └── search.go          # Search for profile URLs
 ├── utils/
-│   └── mouse.go           # Human-like mouse movement + sleeps
-├── main.go                # Orchestrates the workflow
+│   └── mouse.go           # Stealth techniques (8 methods)
+├── main.go                # Entry point
 └── go.mod
 ```
 
@@ -59,7 +64,7 @@ Create a file named `.env` in the project root:
 
 ```env
 LINKEDIN_EMAIL=your_email@example.com
-LINKEDIN_PASS=your_password
+LINKEDIN_PASSWORD=your_password
 ```
 
 **Notes**
@@ -78,15 +83,30 @@ On the next run, it will attempt to restore the session from this file.
 
 ## Running
 
+### Start the server
+
 ```powershell
 go run .
 ```
 
-What to expect:
+### Trigger automation via API
 
-- A real browser window opens (headless is disabled in `main.go`).
-- If cookies are present and valid, it should go straight to the feed.
-- Otherwise, it will navigate to the login page, type credentials from `.env`, log in, then save cookies.
+```powershell
+Invoke-RestMethod -Uri "http://localhost:8080/api/start" `
+  -Method POST -ContentType "application/json" `
+  -Body '{"keyword":"Go Developer","limit":3}'
+```
+
+### API Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `keyword` | string | Search keyword for profiles |
+| `limit` | int | Max profiles to process |
+| `email` | string | (Optional) Override .env email |
+| `password` | string | (Optional) Override .env password |
+| `connectMessage` | string | Custom connection note |
+| `headless` | bool | Run browser headless |
 
 ---
 
@@ -135,10 +155,18 @@ msg := "Hi, I am a Go developer expanding my network. Would love to connect!"
   - If not found, opens **More actions** and tries to click **Connect** from the dropdown
   - If the **Add a note** dialog is available, inputs the provided message and sends
 
-### Human-ish interactions
+### Stealth Techniques (Anti-Detection)
 
-- `utils.RandomSleep(minMs, maxMs)` introduces randomized waits.
-- `utils.HumanClick(page, el)` moves the mouse with slight random offsets then clicks.
+The automation implements 8 stealth techniques to avoid detection:
+
+1. **Bézier Mouse Movement** - Natural curves with overshoot and micro-corrections
+2. **Randomized Timing** - Variable delays with "thinking" pauses
+3. **Browser Fingerprint Masking** - Hides `navigator.webdriver`, spoofs plugins/WebGL
+4. **Random Scrolling** - Variable speeds with occasional scroll-back
+5. **Realistic Typing** - 3% typo rate with corrections, variable keystroke timing
+6. **Mouse Hovering** - Idle cursor wandering and element hover
+7. **Persistent Browser Profile** - Session persists at `~/.linkedin-automation-profile`
+8. **Stealth Chrome Flags** - Disables automation indicators
 
 ---
 
