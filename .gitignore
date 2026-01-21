@@ -22,7 +22,6 @@ bin/
 *.tmp
 *.local
 linkedin_cookies.json
-package-lock.json
 
 # IDE-specific files
 .idea/
