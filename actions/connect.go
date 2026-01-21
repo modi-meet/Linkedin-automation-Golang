@@ -75,10 +75,22 @@ func SendConnectionRequest(page *rod.Page, profileURL, message string, log *logg
 	utils.RandomSleep(800, 1500)
 	page.MustWaitStable()
 
-	if !handleConnectionModal(page, message, log) {
+	if message == "" {
+		log.Printf("No message provided, sending without note...")
 		if sendWithoutNote(page, log) {
 			result.Success = true
 			log.Printf("Request sent (without note)")
+			return result
+		}
+		result.Error = ErrConnectFailed
+		log.Printf("Failed to send without note")
+		return result
+	}
+
+	if !handleConnectionModal(page, message, log) {
+		if sendWithoutNote(page, log) {
+			result.Success = true
+			log.Printf("Request sent (without note - fallback)")
 			return result
 		}
 		result.Error = ErrConnectFailed
@@ -87,7 +99,7 @@ func SendConnectionRequest(page *rod.Page, profileURL, message string, log *logg
 	}
 
 	result.Success = true
-	log.Printf("Request sent successfully")
+	log.Printf("Request sent with note")
 	return result
 }
 
