@@ -98,7 +98,7 @@ function App() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
 
           {/* Credentials Section */}
-          <div className="md:col-span-3">
+          <div className="md:col-span-3 relative">
             <button
               onClick={() => setShowCreds(!showCreds)}
               className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-white border border-slate-200 rounded-xl hover:border-slate-300 hover:shadow-sm transition-all text-sm"
@@ -116,7 +116,7 @@ function App() {
             </button>
 
             {showCreds && (
-              <div className="mt-2 p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-3">
+              <div className="absolute top-14 left-0 right-0 z-20 p-4 bg-white border border-slate-200 rounded-xl shadow-lg space-y-3">
                 <div>
                   <label className="block text-xs text-slate-500 mb-1.5 font-medium">Email</label>
                   <input
@@ -153,7 +153,7 @@ function App() {
           </div>
 
           {/* Search Input */}
-          <div className="md:col-span-6">
+          <div className="md:col-span-6 space-y-3">
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -169,29 +169,18 @@ function App() {
                 placeholder="Search keyword (e.g. 'Software Engineer', 'Product Manager')"
               />
             </div>
-
-            {/* Message Input */}
-            <div className="mt-3">
-              <textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all placeholder-slate-400 resize-none shadow-sm"
-                rows="2"
-                placeholder="Connection message (optional)"
-              />
-            </div>
           </div>
 
           {/* Start Button */}
-          <div className="md:col-span-3 flex items-start">
+          <div className="md:col-span-3 flex items-center">
             <button
               onClick={handleStart}
               disabled={isRunning || !keyword}
               className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-sm transition-all ${isRunning
-                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
-                  : keyword
-                    ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-200'
-                    : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                : keyword
+                  ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-200'
+                  : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
                 }`}
             >
               {isRunning ? (
@@ -212,6 +201,21 @@ function App() {
               )}
             </button>
           </div>
+        </div>
+
+        {/* Connection Message */}
+        <div className="relative">
+          <input
+            type="text"
+            value={message}
+            onChange={(e) => setMessage(e.target.value.slice(0, 300))}
+            className="w-full bg-white border border-slate-200 rounded-xl py-2.5 px-4 pr-16 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all placeholder-slate-400 shadow-sm"
+            placeholder="Connection note (optional)"
+            maxLength={300}
+          />
+          <span className={`absolute right-4 top-1/2 -translate-y-1/2 text-xs ${message.length > 250 ? 'text-amber-500' : 'text-slate-400'}`}>
+            {message.length}/300
+          </span>
         </div>
 
         {/* Terminal */}
