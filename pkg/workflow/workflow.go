@@ -1,7 +1,9 @@
 package workflow
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/meetm/linkedin-automation-go/actions"
@@ -75,28 +77,45 @@ func initBrowser(headless bool, log *logger.Logger) (*rod.Browser, *rod.Page, er
 	userDataDir := getUserDataDir()
 	log.Printf("Using browser profile: %s", userDataDir)
 
-	l := launcher.New().
-		Headless(headless).
-		UserDataDir(userDataDir).
-		Set("disable-blink-features", "AutomationControlled").
-		Set("disable-dev-shm-usage").
-		Set("no-first-run").
-		Set("no-default-browser-check").
-		Set("disable-infobars").
-		Set("disable-extensions").
-		Set("disable-popup-blocking").
-		Set("ignore-certificate-errors").
-		Set("disable-background-networking").
-		Set("disable-sync").
-		Set("disable-translate").
-		Set("metrics-recording-only").
-		Set("safebrowsing-disable-auto-update").
-		Set("password-store", "basic")
+	cleanupProfileLocks(userDataDir, log)
 
 	log.Printf("Launching browser...")
-	u, err := l.Launch()
+
+	var u string
+	var err error
+	for i := 0; i < 3; i++ {
+		l := launcher.New().
+			Headless(headless).
+			Leakless(false).
+			UserDataDir(userDataDir).
+			Set("disable-blink-features", "AutomationControlled").
+			Set("disable-dev-shm-usage").
+			Set("no-first-run").
+			Set("no-default-browser-check").
+			Set("disable-infobars").
+			Set("disable-extensions").
+			Set("disable-popup-blocking").
+			Set("ignore-certificate-errors").
+			Set("disable-background-networking").
+			Set("disable-sync").
+			Set("disable-translate").
+			Set("metrics-recording-only").
+			Set("safebrowsing-disable-auto-update").
+			Set("password-store", "basic")
+
+		u, err = l.Launch()
+		if err == nil {
+			break
+		}
+		log.Printf("Browser launch attempt %d failed: %v", i+1, err)
+		if i < 2 {
+			log.Printf("Cleaning up and retrying...")
+			cleanupProfileLocks(userDataDir, log)
+			time.Sleep(3 * time.Second)
+		}
+	}
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to launch browser after 3 attempts: %w", err)
 	}
 
 	browser := rod.New().ControlURL(u).MustConnect()
@@ -157,12 +176,24 @@ func getUserDataDir() string {
 	return home + "/.linkedin-automation-profile"
 }
 
+func cleanupProfileLocks(profileDir string, log *logger.Logger) {
+	lockFiles := []string{
+		"SingletonLock",
+		"SingletonSocket",
+		"SingletonCookie",
+	}
+
+	for _, lockFile := range lockFiles {
+		lockPath := filepath.Join(profileDir, lockFile)
+		if _, err := os.Stat(lockPath); err == nil {
+			log.Printf("Removing stale lock file: %s", lockFile)
+			os.Remove(lockPath)
+		}
+	}
+}
+
 func processProfiles(page *rod.Page, profiles []string, message string, log *logger.Logger) WorkflowStats {
 	stats := WorkflowStats{ProfilesFound: len(profiles)}
-
-	if message == "" {
-		message = "Hi, I am a Go developer expanding my network. Would love to connect!"
-	}
 
 	for i, profile := range profiles {
 		log.Printf("Processing %d/%d...", i+1, len(profiles))

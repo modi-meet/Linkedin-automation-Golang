@@ -125,14 +125,17 @@ func isPending(page *rod.Page) bool {
 }
 
 func findConnectButton(page *rod.Page) *rod.Element {
-	el, err := page.Timeout(3*time.Second).ElementR("button", "Connect")
-	if err != nil {
-		return nil
+	el, err := page.Timeout(3*time.Second).ElementR("button", "^Connect$")
+	if err == nil && utils.IsElementVisible(el) {
+		return el
 	}
-	if !utils.IsElementVisible(el) {
-		return nil
+
+	el, err = page.Timeout(2*time.Second).ElementR("button", "^Add$")
+	if err == nil && utils.IsElementVisible(el) {
+		return el
 	}
-	return el
+
+	return nil
 }
 
 func findConnectInMore(page *rod.Page, log *logger.Logger) *rod.Element {
