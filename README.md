@@ -10,7 +10,20 @@ Automates a basic LinkedIn workflow using Go and the Rod browser automation libr
 
 > **Important**: Automated interaction with LinkedIn may violate LinkedIn’s Terms of Service and can lead to account restrictions. Use responsibly, on your own account, and at your own risk.
 
-Explanation video - https://drive.google.com/file/d/1xocEAjwKOh64OasL7DALhuCSl_eFtA7u/view?usp=sharing
+📹 **Demo Video** - https://drive.google.com/file/d/1NliAzSxyHn4TXa6B3ajCffHjQwCN06dG/view?usp=sharing
+
+---
+
+## Google Technologies Used
+
+| Technology | Description |
+|------------|-------------|
+| **Go (Golang)** | Core programming language developed by Google, used for the entire backend |
+| **Chromium** | Google's open-source browser engine, automated via Rod |
+| **Chrome DevTools Protocol** | Google's protocol for browser automation and debugging |
+| **V8 JavaScript Engine** | Google's JS engine (embedded in Chromium) executes stealth scripts |
+| **Blink Rendering Engine** | Google's browser rendering engine (disabled automation flags) |
+| **Google Drive** | Video hosting for project demo |
 
 ---
 
