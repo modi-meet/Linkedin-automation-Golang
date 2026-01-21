@@ -21,7 +21,8 @@ bin/
 *.log
 *.tmp
 *.local
-*.json
+linkedin_cookies.json
+package-lock.json
 
 # IDE-specific files
 .idea/
